@@ -12,6 +12,7 @@
 (defn- collect-lib [ns-sym]
   (-> (mc/collect ns-sym)))
 
+
 (defn- collected-fn-to-ts-export [{:keys [name arity args ret] :as collected-fn}]
   (let [args-name (map n-letter (range arity))]
     (str "export function " (clojure.string/replace (str name) #"-" "_") " "
@@ -19,6 +20,24 @@
               ", "
               (map (fn [a t] (str a ": " (clojure.core/name t))) args-name args)) ")"
          ": " (clojure.core/name ret) ";")))
+
+(defn- underscorefy [fn-name]
+  (clojure.string/replace (str fn-name) #"-" "_"))
+
+(defn- to-ts-str-type [k-type]
+  (clojure.core/name t))
+
+(defn- collected-fn-to-ts-export [{:keys [name arity args ret] :as collected-fn}]
+  (let [fn-name name
+        args-name (map n-letter (range arity))
+        joined-args (->>
+                     (map (fn [arg-name arg-type] (str arg-name  ": " (to-ts-str-type arg-type)))
+                          args-name args)
+                     (clojure.string/join ", "))
+        ret-type-str (to-ts-str-type ret)]
+
+    (str "export function " (underscorefy fn-name) " (" joined-args ")"
+         ": " ret-type-str ";")))
 
 (comment
   (collected-fn-to-ts-export '{:ns cljs-ts-exp.lib,
