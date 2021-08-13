@@ -8,6 +8,10 @@
  [[metosin/malli "0.5.0"]]
 
  :builds
- {:lib {:target :node-library
+ {:lib {:closure-defines {malli.registry/type "custom"}
+        :target :node-library
         :output-to "out/lib.js"
         :exports-var cljs-ts-exp.lib/exports}}}
+
+;; (do (shadow/watch :lib) (shadow/repl :lib))
+

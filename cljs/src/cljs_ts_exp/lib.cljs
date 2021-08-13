@@ -1,6 +1,7 @@
 (ns cljs-ts-exp.lib
   (:require-macros [malli.core :refer [=>]])
-  (:require [malli.core :as m]
+  (:require cljs-ts-exp.export.tools
+            [malli.core :as m]
             [malli.clj-kondo :as mc]))
 
 (defn ^:export square [x] (* x x))

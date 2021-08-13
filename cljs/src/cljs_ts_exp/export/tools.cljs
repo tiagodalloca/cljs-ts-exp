@@ -1,9 +1,14 @@
 (ns cljs-ts-exp.export.tools
-
-  (:require [cljs-ts-exp.lib :as lib]
-            [malli.core :as m]
+  (:require [malli.core :as m]
             [malli.clj-kondo :as mc]
+            [malli.registry :as mr]
             ["fs" :as fs]))
+
+(def *registry-db
+  (atom (m/default-schemas)))
+
+(mr/set-default-registry!
+ (mr/mutable-registry *registry-db))
 
 (defn- n-letter [n]
   (let [alphabet "abcdefghijklmnopqrstuvwxyz"]
@@ -11,15 +16,6 @@
 
 (defn- collect-lib [ns-sym]
   (-> (mc/collect ns-sym)))
-
-
-(defn- collected-fn-to-ts-export [{:keys [name arity args ret] :as collected-fn}]
-  (let [args-name (map n-letter (range arity))]
-    (str "export function " (clojure.string/replace (str name) #"-" "_") " "
-         "(" (clojure.string/join
-              ", "
-              (map (fn [a t] (str a ": " (clojure.core/name t))) args-name args)) ")"
-         ": " (clojure.core/name ret) ";")))
 
 (defn- underscorefy [fn-name]
   (clojure.string/replace (str fn-name) #"-" "_"))
