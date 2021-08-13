@@ -21,7 +21,7 @@
   (clojure.string/replace (str fn-name) #"-" "_"))
 
 (defn- to-ts-str-type [k-type]
-  (clojure.core/name t))
+  (clojure.core/name k-type))
 
 (defn- collected-fn-to-ts-export [{:keys [name arity args ret] :as collected-fn}]
   (let [fn-name name

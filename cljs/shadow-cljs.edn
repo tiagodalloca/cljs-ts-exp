@@ -5,7 +5,8 @@
   "src"]
 
  :dependencies
- [[metosin/malli "0.5.0"]]
+ [[metosin/malli "0.5.0"]
+  [camel-snake-kebab "0.4.2"]]
 
  :builds
  {:lib {:closure-defines {malli.registry/type "custom"}
