@@ -7,45 +7,42 @@
 (comment (mr/set-default-registry!
           (mr/mutable-registry exp1/*registry-db)))
 
-(exp1/register-schema! :string string?)
-
 (defmulti type-literal-str
   (fn [schema _]
     (first schema)))
 
 (defmethod type-literal-str :map
-  [[_ & schema-items] typedef-registry]
-  (let [fst-item (first schema-items)
-        
-        k-schemas (if (map? fst-item) ;; checking options map
-                    (rest schema-items)
-                    schema-items)
-        
-        entry-literals
-        (for [k-schema k-schemas]
-          (if (vector? k-schema)
-            (let [[k & xs] k-schema
-                  fst-schema-item (first xs)
-                  are-there-options? (map? fst-schema-item)
-                  optional? (when are-there-options?
-                              (:optional fst-schema-item))
-                  entry-schema  (if are-there-options?
-                                  (second xs)
-                                  fst-schema-item)
-                  another-schema? (map? entry-schema)
-                  type-literal (if another-schema?
-                                 (->typedef-str entry-schema typedef-registry)
-                                 (or (get-in typedef-registry [entry-schema :str])
-                                     "any"))
-                  entry-name (csk/->camelCaseString k)]
-              (str entry-name (when optional? "?") ": " type-literal))
-            (comment "fix when k-schema is not a vector")))]
+  [schema typedef-registry]
+  (let [entry-literals
+        (for [[k opts child] (m/children schema)
+              :let [entry-name (csk/->camelCaseString k)
+                    s-form (m/-form child)
+                    another-schema? (coll? s-form)
+                    type-literal (if another-schema?
+                                   (type-literal-str s-form typedef-registry)
+                                   (or (get-in typedef-registry [s-form :str])
+                                       "any"))
+                    optional? (:optional opts)]]
+          (str entry-name (when optional? "?") ": " type-literal))]
     (str "{\n"(clojure.string/join ",\n" entry-literals) "\n}")))
 
 (comment
   (type-literal-str
    [:map
     [:a :number]
-    [:b :string]]
+    [:b :string]
+    [:c :boolean]]
    {:number {:str "number"}
-    :string {:str "string"}}))
+    :string {:str "string"}
+    :boolean {:str "boolean"}}))
+
+(comment (parse-map [:map
+                     [:a :number]
+                     [:b :string]]))
+
+(comment
+  (let [children (m/children [:map
+                              [:a :int]
+                              [:b :string]])
+        schema (get-in children [0 2])]
+    (m/-form schema)))

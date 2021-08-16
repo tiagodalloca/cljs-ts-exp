@@ -3,7 +3,14 @@
             [malli.registry :as mr]))
 
 (defonce *registry-db
-  (atom (m/default-schemas)))
+  (atom (merge (m/default-schemas)
+               {:number (m/-simple-schema
+                         {:type :number
+                          :pred number?
+                          :property-pred (m/-min-max-pred nil)})
+                :string (m/-simple-schema
+                         {:type :string
+                          :pred string?})})))
 
 (comment (mr/set-default-registry!
           (mr/mutable-registry *registry-db)))
