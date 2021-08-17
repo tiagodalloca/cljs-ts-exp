@@ -5,7 +5,7 @@
             [camel-snake-kebab.core :as csk]))
 
 (comment (mr/set-default-registry!
-          (mr/mutable-registry exp1/*registry-db)))
+          (mr/mutable-registry exp1/registry-db*)))
 
 (defmulti type-literal-str
   (fn [schema _]
@@ -27,12 +27,17 @@
     (str "{\n"(clojure.string/join ",\n" entry-literals) "\n}")))
 
 (comment
-  (type-literal-str
+  (exp1/register-schema! ::id number?))
+
+(comment
+  (type-literal-str   
    [:map
+    ::id
     [:a :number]
     [:b :string]
     [:c :boolean]]
-   {:number {:str "number"}
+   {::id {:str "Id"}
+    :number {:str "number"}
     :string {:str "string"}
     :boolean {:str "boolean"}}))
 

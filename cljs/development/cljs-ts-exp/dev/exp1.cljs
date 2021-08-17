@@ -2,7 +2,7 @@
   (:require [malli.core :as m]
             [malli.registry :as mr]))
 
-(defonce *registry-db
+(defonce registry-db*
   (atom (merge (m/default-schemas)
                {:number (m/-simple-schema
                          {:type :number
@@ -17,7 +17,7 @@
 
 (defn register-schema!
   [schema-id schema]
-  (swap! *registry-db assoc schema-id schema))
+  (swap! registry-db* assoc schema-id schema))
 
 (register-schema! :neg-number [:and number? neg?])
 
