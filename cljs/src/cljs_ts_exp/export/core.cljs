@@ -2,7 +2,6 @@
   (:require [malli.core :as m]
             [camel-snake-kebab.core :as csk]))
 
-
 (defmulti ->type-literal-str
   (fn [schema _]
     (first schema)))
