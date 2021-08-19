@@ -60,16 +60,16 @@
 (defmethod accept 'associative? [_ _ _ _] {:type :object})
 (defmethod accept 'sequential? [_ _ _ _] {:type :array})
 (defmethod accept 'bytes? [_ _ _ _] {:type :string})
-(defmethod accept :> [_ _ [value] _] {:type :number})
-(defmethod accept :>= [_ _ [value] _] {:type :number})
-(defmethod accept :< [_ _ [value] _] {:type :number})
-(defmethod accept :<= [_ _ [value] _] {:type :number})
-(defmethod accept := [_ _ [value] _] {})
+(defmethod accept :> [_ _ _ _] {:type :number})
+(defmethod accept :>= [_ _ _ _] {:type :number})
+(defmethod accept :< [_ _ _ _] {:type :number})
+(defmethod accept :<= [_ _ _ _] {:type :number})
+(defmethod accept := [_ _ [value] _] {:const value})
 (defmethod accept :not= [_ _ _ _] {})
-(defmethod accept :not [_ _ children _] {})
+(defmethod accept :not [_ _ _ _] {})
 
 (defmethod accept :and [_ _ children _]
-  (let [non-empty-children (filter (comp not empty?))]
+  (let [non-empty-children (filter (comp not empty?) children)]
     (if-not (empty? non-empty-children)
       {:intersection children} {})))
 
@@ -94,7 +94,7 @@
 (defmethod accept :vector [_ _ children _] {:type :array, :items (first children)})
 (defmethod accept :sequential [_ _ children _] {:type :array, :items (first children)})
 (defmethod accept :set [_ _ children _] {:type :array, :items (first children)})
-(defmethod accept :enum [_ _ children _] {:type :enum, :items children})
+(defmethod accept :enum [_ _ children _] {:union (map #(array-map :const %) children)})
 (defmethod accept :maybe [_ _ children _] {:union (conj children {:type :undefined})})
 (defmethod accept :tuple [_ _ children _] {:type :tuple, :items children})
 (defmethod accept :re [_ schema _ options] {:type :string})
