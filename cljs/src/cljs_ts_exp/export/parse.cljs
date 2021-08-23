@@ -24,20 +24,22 @@
 (defmethod -parse-node :$ref
   [{:keys [$ref] :as node} {:keys [deref-types
                                    schema-id->type-desc
-                                   files-import-alias]
+                                   files-import-alias
+                                   file-imports*
+                                   file]
                             :as options}]
   (if (get deref-types $ref)
-    (-parse-node (-> node (get-in [:definitions $ref]) transform)
-                 options)
-    (let [file (get-in schema-id->type-desc [$ref :file])
-          import-alias (get files-import-alias file)
-          type-name (get-in schema-id->type-desc [$ref :name])]
-      (str import-alias "." type-name))))
+    (-parse-node (get-in node [:definitions $ref]) options)
+    (let [ref-file (get-in schema-id->type-desc [$ref :file])
+          import-alias (get files-import-alias ref-file)
+          ref-type-name (get-in schema-id->type-desc [$ref :name])]
+      (do (swap! file-imports* update file clojure.set/union #{ref-file}))
+      (str import-alias "." ref-type-name))))
 
 (comment
   (-parse-node
    {:$ref :flow/person
-    :definitions {:flow/person [:tuple :string :int]}}
+    (:definitions) {:flow/person (transform [:tuple :string :int])}}
    {:deref-types {:flow/person false}
     :schema-id->type-desc
     {:flow/person {:name "FlowPerson"
@@ -46,7 +48,7 @@
   
   (-parse-node
    {:$ref :flow/person
-    :definitions {:flow/person [:tuple :string :int]}}
+    :definitions {:flow/person (transform [:tuple :string :int])}}
    {:deref-types {:flow/person true}
     :schema-id->type-desc
     {:flow/person {:name "FlowPerson"
@@ -65,8 +67,8 @@
     (some #(% const) [boolean? number?]) (str const)
     :else (-parse-node {:type :any} options)))
 
-(defmethod -parse-node [:type :array] [{:keys [items]} _]
-  (str "Array<" (-parse-node items) ">"))
+(defmethod -parse-node [:type :array] [{:keys [items]} options]
+  (str "Array<" (-parse-node items options) ">"))
 
 (comment
   (-parse-node {:type :array :items {:type :number}} nil))
@@ -113,31 +115,97 @@
   (-parse-node (transform [:map-of :string :int]))
   (-parse-node
    {:$ref :flow/person
-    :definitions {:flow/person [:map [:name string?] [:age pos-int?]]}}
+    :definitions {:flow/person (transform [:map [:name string?] [:age pos-int?]])}}
    {:deref-types {:flow/person true}
-    :schema-id->type-desc
-    {:flow/person {:name "FlowPerson"
-                   :file "flow/person/index.d.ts"}}
+    :schema-id->type-desc {:flow/person {:name "FlowPerson"
+                                         :file "flow/person/index.d.ts"}}
     :files-import-alias {"flow/person/index.d.ts" "fp"}}))
 
-(comment (defn parse
-           [schemas-v options]
-           (let [schemas-v (partition 2 schemas-v)
-                 
-                 schema-id->type-desc
-                 (into {} (map (fn [[k type-desc]]
-                                 [k (update type-desc :file -normalize-file)])
-                               schemas-v))
-                 
-                 (for [[schema-id _] schemas-v]
-                   )])))
+(defn import-literal
+  [from alias]
+  (str "import * as " alias " from " \' from \' \;))
+
+(comment
+  (import-literal
+   (path/relative (path/dirname "flow/person/index.d.ts") "flow/index.d.ts")
+   "flow"))
+
+(defn ->type-declaration-str
+  [type-name literal options]
+  (let [{:keys [export]} options]
+    (str (if export "export " nil)
+         "type "  type-name " = " literal ";")))
+
+(defn parse
+  [schemas-v options]
+  (let [schema-id->type-desc (into {} schemas-v)
+        options (merge options {:schema-id->type-desc schema-id->type-desc
+                                :file-imports* (atom {})})
+        schema-id->type-desc
+        (reduce (fn [m [schema-id {:keys [file] :as type-desc}]]
+                  (assoc-in
+                   m [schema-id :literal]
+                   (-parse-node (transform schema-id options)
+                                (merge options
+                                       {:deref-types {schema-id true}
+                                        :file file}))))
+                schema-id->type-desc
+                schemas-v)
+
+        file->type-descs
+        (reduce (fn [m [schema-id {:keys [file]}]]
+                  (update-in
+                   m [file]
+                   conj (get schema-id->type-desc schema-id)))
+                {} schemas-v)
+
+        {:keys [export-default files-import-alias file-imports*]} options
+
+        files (map (fn [[k _]] k) file->type-descs)
+
+        file->import-literals
+        (reduce (fn [m file]
+                  (assoc-in
+                   m [file]
+                   (map
+                    (fn [import-file]
+                      (import-literal
+                       (path/relative (path/dirname file) import-file)
+                       (get files-import-alias import-file)))
+                    (get @file-imports* file))))
+                {} files)
+
+        file->type-literals
+        (reduce (fn [m file]
+                  (assoc-in
+                   m [file]
+                   (map
+                    (fn [{:keys [name literal export]}]
+                      (->type-declaration-str
+                       name literal
+                       {:export (if (some? export) export export-default)}))
+                    (get file->type-descs file))))
+                {} files)
+
+        file-contents
+        (reduce (fn [m file]
+                  (assoc-in
+                   m [file]
+                   (let [import (string/join "\n" (get file->import-literals file))
+                         types (string/join "\n" (get file->type-literals file))]
+                     (str (if-not (string/blank? import) (str import "\n\n"))
+                          types))))
+                {} files)]
+    file-contents))
+
+;; TODO: UPDATE file-imports*
 
 (comment
   (parse
-   [:flow/person {:name "FlowPerson"
-                  :file "flow/index.d.ts"}
-    ]
-   {:files-import-alias {"flow/index.d.ts" "flow"}
-    :registry {}})
-  )
+   [[:flow/person {:name "FlowPerson"
+                   :file "flow/index.d.ts"}]
+    ] 
+   {:export-default true
+    :files-import-alias {"flow/index.d.ts" "flow"}
+    :registry {:flow/person (m/schema [:map [:name string?] [:age pos-int?]])}}))
 

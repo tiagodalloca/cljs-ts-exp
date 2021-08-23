@@ -13,7 +13,7 @@
                           :pred string?})})))
 
 (comment (mr/set-default-registry!
-          (mr/mutable-registry *registry-db)))
+          (mr/mutable-registry registry-db*)))
 
 (defn register-schema!
   [schema-id schema]
