@@ -12,8 +12,8 @@
                          {:type :string
                           :pred string?})})))
 
-(comment (mr/set-default-registry!
-          (mr/mutable-registry registry-db*)))
+(mr/set-default-registry!
+ (mr/mutable-registry registry-db*))
 
 (defn register-schema!
   [schema-id schema]
